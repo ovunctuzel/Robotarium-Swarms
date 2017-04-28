@@ -1,0 +1,83 @@
+import graph.*
+import controllers.*
+import transformations.*
+
+% Radii configurations (repulsion-orientation-attraction)
+% Robot is roughly 0.03m
+radii = [0.05 0.3 0.3];
+% Init and Goal Poses;
+initPos(:,:,1) = [0.3 0.3 0.3 0.0 0.0 0.0 -0.5 -0.4; 0.2 0.225 0.25 -0.15 -0.05 -0.2 -0.25 -0.25];
+initPos(:,:,2) = [0.1 0.2 0.3 0.1 0.2 0.3 -0.55 -0.25; 0.2 0.25 0.25 0.15 -0.05 -0.2 -0.3 -0.3];
+initPos(:,:,3) = [0.1 0.3 0.3 0.0 0.0 0.0 -0.5 -0.4; 0.2 0.25 0.3 -0.15 -0.05 -0.2 -0.3 -0.3];
+goalPos(:,:,1) = [-0.4; 0.1];
+goalPos(:,:,2) = [ 0.4; 0.1];
+goalPos(:,:,3) = [-0.2; 0.2];
+% Number of agents
+N = 8;
+
+for trial = 1:1 
+    r = Robotarium();
+    r.initialize(N);
+    flock = Flock(r, N);
+    flock.radiusRep = radii(1);
+    flock.radiusOri = radii(2);
+    flock.radiusAtr = radii(3);
+    flock.wallRepRadius = 0.12;
+    flock.senseGoalRadius = 0.15;
+    flock.foundGoalRadius = 0.05;
+    flock.blindspot = pi/3;
+    flock.numObstacles = 0;
+    flock.initPos = initPos;
+    
+    % Barrier Certificate Init--------------------------------------------
+    position_int = create_si_position_controller('XVelocityGain', 1, 'YVelocityGain', 1);
+    si_barrier_certificate = create_si_barrier_certificate('SafetyRadius', 0.1);
+    uni_barrier_certificate = create_uni_barrier_certificate('SafetyRadius', 0.01, 'ProjectionDistance', 0.05);
+    si_to_uni_dyn = create_si_to_uni_mapping2('LinearVelocityGain', 0.75, 'AngularVelocityLimit', pi);
+    
+    flock.barrierCert = si_barrier_certificate;
+    flock.unibarrierCert = uni_barrier_certificate;
+    flock.si2uni = si_to_uni_dyn;
+    flock.positionCont = position_int;
+    % --------------------------------------------------------------------
+        
+    % Extract goal location
+    flock.goal = goalPos(:,:,1);
+    flock.senseObstacleRadius = 0.1;
+    flock.communicationRadius = flock.radiusAtr;
+    flock.model = 'M';
+    flock.nTop = 3;
+    % Plot goal
+    theta = 0:0.25:2*pi;
+    handle1 = plot(flock.goal(1), flock.goal(2), '.b', 'MarkerSize', 60);
+    handle2 = plot(flock.goal(1) + flock.senseGoalRadius * cos(theta),...
+        flock.goal(2) + flock.senseGoalRadius * sin(theta),...
+        'r.', 'MarkerSize', 20);
+    
+    iterations = 3;
+    for t = 1:iterations
+        timeout = 3000;
+        % Write Function
+        flock.goal = goalPos(:,:,t);
+        flock.initPos = initPos(:,:,t);
+        delete(handle1);
+        delete(handle2);
+        handle1 = plot(flock.goal(1), flock.goal(2), '.b', 'MarkerSize', 60);
+        handle2 = plot(flock.goal(1) + flock.senseGoalRadius * cos(theta),...
+        flock.goal(2) + flock.senseGoalRadius * sin(theta),...
+        'r.', 'MarkerSize', 20);
+        % -----------------
+    
+        flock.goToStart();
+        flock.updateLocations();
+        while ~flock.check_goal() && timeout
+            flock.run();
+            flock.updateLocations();
+            timeout = timeout - 1;
+        end
+        flock.run();
+        flock.resetBoids();
+    end
+    close(r.figureHandle);
+end
+
