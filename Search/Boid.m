@@ -8,22 +8,26 @@ classdef Boid < handle
         neighbors
         flock
         lines
-        circle
+        circles
+        text
     end
     
     methods
         
         function this = Boid(f, id)
             this.flock = f;
-            this.arena = f.arena;        % Robotarium
-            this.id = id;                % Numbered from 1 to N
+            this.arena = f.arena;                % Robotarium
+            this.id = id;                        % Numbered from 1 to N
             this.speed = 1;
             this.arena.set_velocities(this.id, [this.speed;0]);
             this.turning = false;
             this.targetDirection = [];
             this.neighbors = [];
-            this.lines = [line(0,0) line(0,0) line(0,0) line(0,0) line(0,0) line(0,0) line(0,0) line(0,0) line(0,0)];
-            this.circle = viscircles([0,0],0);
+            this.lines = gobjects(1,length(f.boids));
+            this.lines(:) = line(0,0);
+            this.circles = gobjects(1,3); % Rally Ldr, Rori, Ratt     
+            this.circles(:) = viscircles([0,0],0);
+            this.text = text(0,0,'');
         end
         
         function repVel = calculate_repVel(this, locations, neighborsRep)
@@ -106,20 +110,18 @@ classdef Boid < handle
         end
         
         function desiredVelocity = swarm(this, f)
-            DEBUG = 0;
-            W_att = 0.5;
-            W_ori = 0.5;
-            W_gatt = 0.6;
+            global ATT_WEIGHT ORI_WEIGHT GOAL_ATT_WEIGHT
+            W_att = ATT_WEIGHT;
+            W_ori = ORI_WEIGHT;
+            W_gatt = GOAL_ATT_WEIGHT;
             locations = f.locations;
             neighborsRep = delta_disk_neighbors(locations, this.id, f.radiusRep);
             neighborsOri = delta_disk_neighbors(locations, this.id, f.radiusOri);
             neighborsAtr = delta_disk_neighbors(locations, this.id, f.radiusAtr);
             
             
-            % OVUNC: This part is left untouched for now. ----------------
             % Trim neighborsRep, neighborsOri, neighborsAtr
             if f.model == 'M'
-                % Ignore Repulsion/Ori if foundGoal
                 for i = length(neighborsRep):-1:1
                     if neighborsRep(i) == 0
                         neighborsRep(i) = [];
@@ -131,13 +133,10 @@ classdef Boid < handle
                     end
                 end
             else
-                % Below is for Topological and Visual
                 % if an element is in neighborsRep, but not in neighbors,
                 % remove it from neighborsRep
                 for j = 1:1:size(neighborsRep, 2)
-                    %Is neighborsRep(1, j) in the list of neighbors?
                     if (~ismember(neighborsRep(j), this.neighbors))
-                        %No, remove it from neighborsRep
                         neighborsRep(j) = 0;
                     end
                 end
@@ -149,9 +148,7 @@ classdef Boid < handle
                 %if an element is in neighborsOri, but not in neighbors,
                 %remove it from neighborsOri
                 for j = 1:1:size(neighborsOri, 2)
-                    %Is neighborsRep(1, j) in the list of neighbors?
                     if (~ismember(neighborsOri(j), this.neighbors))
-                        %No, remove it from neighborsRep
                         neighborsOri(j) = 0;
                     end
                 end
@@ -163,9 +160,7 @@ classdef Boid < handle
                 %if an element is in neighborsAtr, but not in neighbors,
                 %remove it from neighborsAtr
                 for j = 1:1:size(neighborsAtr, 2)
-                    %Is neighborsRep(1, j) in the list of neighbors?
                     if (~ismember(neighborsAtr(j), this.neighbors))
-                        %No, remove it from neighborsRep
                         neighborsAtr(j) = 0;
                     end
                 end
@@ -193,23 +188,6 @@ classdef Boid < handle
             
             % Wall Repulsion
             wallRepVel = this.calculate_wallRep(locations);
-            
-            % Goal Attraction
-%            gattVelocity =  this.calculate_gattVel(locations);
-
-            % Final Calculation
-%             desiredVelocity = orientationVelocity + attractionVelocity...
-%                 + wallRepVel + repVelocity; % + noise + repVelocity
-% 
-%             if ~norm(orientationVelocity) == 0
-%                 orientationVelocity = orientationVelocity ./ norm(orientationVelocity) ./ 3;
-%             end
-%             if ~norm(attractionVelocity) == 0
-%                 attractionVelocity = attractionVelocity ./ norm(attractionVelocity) ./ 3;
-%             end
-%             if ~norm(wallRepVel) == 0
-%                 wallRepVel = wallRepVel ./ norm(wallRepVel) ./ 3;
-%             end
 
 %           Wall repulsion is given priority over attraction & orientation  
             if norm(wallRepVel) ~= 0
@@ -217,58 +195,11 @@ classdef Boid < handle
             else
                 desiredVelocity = (attVelocity * W_att + oriVelocity * W_ori) / (W_ori + W_att);
             end
-            
-            % Visualization -----------------------------------------------
-            if DEBUG
-                delete(this.lines(1))
-                if norm(oriVelocity) ~= 0
-                    normd = oriVelocity;
-                    xpos = locations(1, this.id);
-                    ypos = locations(2, this.id);
-                    x = [xpos, xpos + normd(1)*0.5];
-                    y = [ypos, ypos + normd(2)*0.5];
-                    this.lines(1) = line(x, y, 'Color', 'y');
-                end
-                delete(this.lines(2))
-                if norm(attVelocity) ~= 0
-                    normd = attVelocity;
-                    xpos = locations(1, this.id);
-                    ypos = locations(2, this.id);
-                    x = [xpos, xpos + normd(1)*0.5];
-                    y = [ypos, ypos + normd(2)*0.5];
-                    this.lines(2) = line(x, y,'Color', 'r');
-                end
-%                 delete(this.lines(3))
-%                 if norm(gattVelocity) ~= 0
-%                     normd = gattVelocity;
-%                     xpos = locations(1, this.id);
-%                     ypos = locations(2, this.id);
-%                     x = [xpos, xpos + normd(1)*0.5];
-%                     y = [ypos, ypos + normd(2)*0.5];
-%                     this.lines(3) = line(x, y,'Color', 'g');
-%                 end
-                delete(this.lines(4))
-                if norm(desiredVelocity) ~= 0
-                    normd = desiredVelocity;
-                    xpos = locations(1, this.id);
-                    ypos = locations(2, this.id);
-                    x = [xpos, xpos + normd(1)*0.1];
-                    y = [ypos, ypos + normd(2)*0.1];
-                    this.lines(4) = line(x, y,'Color', 'k');
-                end
-            end
-
-
-            % -------------------------------------------------------------
-            
-            % -------------------------------------------------------------
-            
-            % To unicycle
+                      
+            % To unicycle dynamics
             if norm(desiredVelocity) == 0
                 desiredVelocity = [this.speed; 0];
-                % this.arena.setVelocities(this.id, [this.speed; 0]);
             else
-                % desiredVelocity = desiredVelocity ./ norm(desiredVelocity);
                 desiredAngle = atan2(desiredVelocity(2, 1),desiredVelocity(1, 1));
                 desiredAngle = desiredAngle - locations(3:3, this.id);
                 desiredAngle = mod(desiredAngle, 2*pi);
@@ -279,7 +210,6 @@ classdef Boid < handle
                 end
                 angularVelocity = desiredAngle * this.arena.time2iters(1);
                 desiredVelocity = [this.speed; angularVelocity];
-                % desiredVelocity = desiredVelocity ./ norm(desiredVelocity);
             end
         end
               
@@ -302,29 +232,25 @@ classdef Boid < handle
         end
         
         function getCommNeighbors_V(this, f, locations)
-            % potentialNeighbors = delta_disk_neighbors(locations, this.id, f.communicationRadius);
-            potentialNeighbors = delta_disk_neighbors(locations, this.id, 0.6708);
+            potentialNeighbors = delta_disk_neighbors(locations, this.id, f.vdist);
             if isempty(potentialNeighbors)
                 this.neighbors = potentialNeighbors;
                 return
             else
                 agentAgentDistance = zeros(1, length(potentialNeighbors));
 
+                % Calculate agentAgentDistance for this boid
                 for j = 1:length(potentialNeighbors)
                     agentAgentDistance(1, j) = norm(locations(1:2, this.id) -...
                         locations(1:2, potentialNeighbors(j)));
                 end
-
-                %[~, agentAgentDistanceIndices] = sort(agentAgentDistance);
-                %potentialNeighbors = agentAgentDistanceIndices;
+                
+                % Calculate agentAgentAngle for this boid
                 agentAgentAngle = zeros(1, length(agentAgentDistance));
                 for j = 1:length(potentialNeighbors)
                     y = locations(2, potentialNeighbors(j)) - locations(2, this.id);
                     x = locations(1, potentialNeighbors(j)) - locations(1, this.id);
                     theta = atan2(y, x);
-%                     if theta < 0
-%                         theta = theta + (2 * pi);
-%                     end
                     agentAgentAngle(1, j) = locations(3, this.id)-theta;
                     if agentAgentAngle(1, j) > pi
                         agentAgentAngle(1, j) = agentAgentAngle(1, j) - 2*pi;
@@ -332,13 +258,8 @@ classdef Boid < handle
                         agentAgentAngle(1, j) = agentAgentAngle(1, j) + 2*pi;
                     end
                 end
-%                 if locations(3, this.id) < pi
-% 
-%                     direction = locations(3, this.id) + pi;
-%                 else
-%                     direction = locations(3, this.id) - pi;
-%                 end
-
+                
+                % Remove agents in blindspot from neighbors
                 for j = 1:length(agentAgentAngle)
                     if abs(agentAgentAngle(1, j)) > pi - f.blindspot/2
                         potentialNeighbors(1, j) = 0;
@@ -354,7 +275,6 @@ classdef Boid < handle
                             % i blocks j
                             occulsionAngle = atan2(0.03, agentAgentDistance(i));
                             if abs(agentAgentAngle(i)-agentAgentAngle(j))<abs(occulsionAngle)
-                                disp('OCCLUDED')
                                 potentialNeighbors(j) = 0;
                             end
                         end
@@ -364,6 +284,7 @@ classdef Boid < handle
                 %---------------------------------------------------------
                 % No obstacle Occlusion
                
+                % Clean up removed neighbors
                 for i = length(potentialNeighbors):-1:1
                     if potentialNeighbors(1, i) == 0
                         potentialNeighbors(i) = [];

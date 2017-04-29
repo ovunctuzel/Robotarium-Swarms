@@ -1,22 +1,22 @@
 import graph.*
 import controllers.*
 import transformations.*
-clc
+clc;
 close all;
 % Init Routine ------------------------------------------------------------
 % Number of agents
-N = 8;
-goals = 4;
+N = AGENT_COUNT;
+goals = TARGET_COUNT;
 % Init Robotarium
 rb = RobotariumBuilder();
 r = rb.set_number_of_agents(N).set_save_data(false).build();
 flock = Flock(r, N);
 
 % Number of iteration before calling quits
-timeout = 1500;
+timeout = TIMEOUT;
 % Number of experiments
 experiments = 10;
-experimentSet = 'R2_V_C1';
+experimentSet = 'R2_M_C1';
 
 data = Data(flock, timeout);
 mkdir('Data')
@@ -32,7 +32,7 @@ nTop_ar = zeros(1, experiments);
 for i=1:experiments
     fid=fopen(['../Input/Search/', experimentSet, '/SearchInput', num2str(i), '.csv'],'rt');
     input = textscan(fid, '%f %f %f %f %f %f %f %s %f %f','HeaderLines',1,'Delimiter',',');
-    % cell2mat([input(:,1); input(:,2)]')
+    cell2mat([input(:,1); input(:,2)]')
     initPos_ar(:,:,i) = cell2mat([input(:,1); input(:,2)]');
     c = cell2mat([input(:,3) input(:,4)]);
     goalPos_ar(:,:,i) = c(1:goals,:);
@@ -55,17 +55,18 @@ for i=1:experiments
     flock.radiusRep = radii(1);
     flock.radiusOri = radii(2);
     flock.radiusAtr = radii(3);
-    flock.wallRepRadius = 0.125;
-    flock.senseGoalRadius = 0.15;
-    flock.foundGoalRadius = 0.15;
-    flock.blindspot = pi/3;
+    flock.wallRepRadius = WALL_REP_RAD;
+    flock.senseGoalRadius = SENSE_GOAL_RAD;
+    flock.foundGoalRadius = FOUND_GOAL_RAD;
+    flock.blindspot = BLINDSPOT;
+    flock.vdist = VISUAL_DIST;
     flock.numObstacles = 0;
     
     % Barrier Certificate Init--------------------------------------------
     position_int = create_si_position_controller('XVelocityGain', 1, 'YVelocityGain', 1);
     si_barrier_certificate = create_si_barrier_certificate('SafetyRadius', 0.1);
     % Maybe we can play around with the safety radius? (Consensus Ex: 0.009)
-    uni_barrier_certificate = create_uni_barrier_certificate('SafetyRadius', 0.01, 'ProjectionDistance', 0.05);
+    uni_barrier_certificate = create_uni_barrier_certificate('SafetyRadius', flock.radiusRep, 'ProjectionDistance', 0.05);
     si_to_uni_dyn = create_si_to_uni_mapping2('LinearVelocityGain', 0.75, 'AngularVelocityLimit', pi);
     
     flock.barrierCert = si_barrier_certificate;
@@ -100,6 +101,7 @@ for i=1:experiments
         t = t + 1;
         data.calc_all(t);
     end
+    
     data.calc_all(t);
     cd Data
     if ~exist(['Data_',experimentSet], 'dir')

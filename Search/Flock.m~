@@ -42,7 +42,6 @@ classdef Flock < handle
         end
         
         function updateGoals(this)
-            global GOAL_TOLERANCE
             N = length(this.boids);
 %             this.goals;
 %             this.locations;
@@ -91,7 +90,7 @@ classdef Flock < handle
         function this = resetBoids(this)
              for i = 1:size(this.boids)
                 currentBoid = this.boids(i, 1);
-                delete(currentBoid.lines(:));
+                delete(currentBoid.lines);
              end
              this.goalMarks(:) = 0;
              this.goalVisits(:) = 0;
@@ -111,13 +110,12 @@ classdef Flock < handle
         end
         
         function this = visualizeRadii(this, currentBoid)
-           delete(currentBoid.circles(2:3));
-           currentBoid.circles(2) = viscircles([this.locations(1:2,currentBoid.id)'], this.radiusOri, 'LineStyle', '-.', 'Color', [0.4 0.8 0.4], 'LineWidth', 0.1);
-           currentBoid.circles(3) = viscircles([this.locations(1:2,currentBoid.id)'], this.radiusAtr, 'LineStyle', '-.', 'Color', [0.4 0.4 0.8], 'LineWidth', 0.1);
+           viscircles([this.locations(1:2,currentBoid.id)'], this.radiusOri, 'Color', 'g', 'LineWidth', 0.1);
+           viscircles([this.locations(1:2,currentBoid.id)'], this.radiusAtr, 'Color', 'b', 'LineWidth', 0.1);
         end
         
         function this = run(this)
-            global ENABLE_ROBOT_LBL ENABLE_NBOR_VIS ENABLE_RADII_VIS SWARM_SPEED
+            global ENABLE_ROBOT_LBL, ENABLE_NBOR_VIS, ENABLE_RADII_VIS, SWARM_SPEED
             N = length(this.boids);
             dxu = zeros(2, N);
             xi = this.locations;
@@ -125,10 +123,9 @@ classdef Flock < handle
             if ENABLE_ROBOT_LBL       
                 for i = 1:size(this.boids)
                     currentBoid = this.boids(i, 1);
-                    delete(currentBoid.text)
                     x1 = this.locations(1, currentBoid.id);
                     y1 = this.locations(2, currentBoid.id);
-                    currentBoid.text = text(x1,y1,['     R' num2str(currentBoid.id)]);
+                    text(x1,y1,['     R' num2str(currentBoid.id)])
                 end
             end
             
